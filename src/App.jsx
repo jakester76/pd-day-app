@@ -4,7 +4,7 @@ import { getFirestore, collection, doc, setDoc, onSnapshot, query, writeBatch, g
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { 
   Users, Map as MapIcon, CheckCircle2, Circle, 
-  AlertCircle, RefreshCw, Clock
+  AlertCircle, RefreshCw, Clock, BookOpen
 } from 'lucide-react';
 
 /* ==========================================
@@ -22,7 +22,6 @@ const firebaseConfig = {
 };
 
 // -- MAP COORDINATES --
-// Exact coordinates provided by user
 const MAP_LOCATIONS = {
   // Mini HD 1 + PAC
   "Auditorium (PAC) | Room 100A": { x: 15.1, y: 22.7 },
@@ -171,7 +170,7 @@ const TEAMS = [
 // -- APP COMPONENT --
 
 export default function App() {
-  const [view, setView] = useState('dashboard'); // 'dashboard' | 'map'
+  const [view, setView] = useState('dashboard'); // 'dashboard' | 'map' | 'playbook'
   const [user, setUser] = useState(null);
   const [roomStatus, setRoomStatus] = useState({});
   const [loading, setLoading] = useState(true);
@@ -298,7 +297,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
-              Educate. Inform. Inspire. 2026 - IT Support
+              PD Day IT Support
               <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300 font-normal border border-slate-600">
                 {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </span>
@@ -320,6 +319,13 @@ export default function App() {
             >
               <MapIcon size={18} className="inline mr-2" />
               Map
+            </button>
+            <button 
+              onClick={() => setView('playbook')}
+              className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'playbook' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+            >
+              <BookOpen size={18} className="inline mr-2" />
+              Playbook
             </button>
             {/* RESET BUTTON */}
             <button 
@@ -478,12 +484,140 @@ export default function App() {
           />
         )}
 
+        {/* PLAYBOOK VIEW */}
+        {view === 'playbook' && (
+          <PlaybookView />
+        )}
+
       </main>
     </div>
   );
 }
 
 // -- SUB COMPONENTS --
+
+function PlaybookView() {
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl mx-auto">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* Title Header */}
+        <div className="bg-slate-900 text-white p-6 md:p-8">
+          <div className="text-blue-400 text-sm font-bold uppercase tracking-wider mb-2">PD Day IT Support Playbook</div>
+          <h2 className="text-3xl md:text-4xl font-bold mb-2">Educate. Inform. Inspire.</h2>
+          <p className="text-slate-400 text-lg">2026 Operational Expectations & Support Strategy</p>
+        </div>
+
+        <div className="p-6 md:p-8 space-y-10">
+          
+          <section>
+            <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <Users className="text-blue-600" size={24}/>
+              Support Model
+            </h3>
+            <div className="bg-slate-50 rounded-lg p-5 border border-slate-100">
+              <p className="mb-3 font-medium text-slate-700">IT support operates in block-based teams.</p>
+              <ul className="space-y-2 text-slate-600 list-disc pl-5">
+                <li>Your team is responsible for your assigned block of rooms.</li>
+                <li>Ensure presenter readiness before every session.</li>
+                <li>Conduct ongoing room checks throughout sessions (approx every 20 mins).</li>
+              </ul>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <Clock className="text-blue-600" size={24}/>
+              Daily Timeline Expectations
+            </h3>
+            
+            <div className="space-y-6">
+              <div className="relative pl-6 border-l-2 border-slate-200">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-200"></div>
+                <h4 className="font-bold text-slate-900 mb-2">Start of Day</h4>
+                <ul className="space-y-1 text-slate-600 text-sm">
+                  <li>Group up with your assigned block team.</li>
+                  <li>Decide who is covering which specific rooms.</li>
+                  <li>Review assigned lunch schedules and coverage plans.</li>
+                  <li className="font-medium text-blue-700">Be in your blocks before the first session begins.</li>
+                </ul>
+              </div>
+
+              <div className="relative pl-6 border-l-2 border-slate-200">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-200"></div>
+                <h4 className="font-bold text-slate-900 mb-2">Before Each Session</h4>
+                <div className="text-sm text-slate-600 mb-2">Visit each classroom and verify:</div>
+                <ul className="space-y-1 text-slate-600 text-sm list-disc pl-4">
+                  <li>Device is connected</li>
+                  <li>Display and audio are working</li>
+                  <li>Wi-Fi is connected and stable</li>
+                </ul>
+                <div className="mt-2 text-xs font-bold text-slate-500 uppercase tracking-wide">Goal: No presenter starts with unresolved issues.</div>
+              </div>
+
+              <div className="relative pl-6 border-l-2 border-slate-200">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-200"></div>
+                <h4 className="font-bold text-slate-900 mb-2">During Sessions</h4>
+                <p className="text-sm text-slate-600 mb-2">Once all rooms are verified, you may fall back to Helpdesk (Rm 117), but you remain responsible for your block.</p>
+                <p className="text-sm text-slate-600 italic">Continue checks every ~20 minutes.</p>
+              </div>
+
+              <div className="relative pl-6 border-l-2 border-slate-200">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-200"></div>
+                <h4 className="font-bold text-slate-900 mb-2">Breaks & Transitions</h4>
+                <p className="text-sm text-slate-600 mb-2">Return to your block <strong>just before</strong> the break starts.</p>
+                <ul className="space-y-1 text-slate-600 text-sm list-disc pl-4">
+                  <li>Be visible as presenters exit/enter.</li>
+                  <li>Catch transition issues immediately.</li>
+                  <li>Ensure rooms are fully ready before the next start time.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <AlertCircle className="text-blue-600" size={24}/>
+              Support & Escalation
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <h4 className="font-bold text-slate-900 mb-2">When to Escalate</h4>
+                <ul className="text-sm text-slate-600 space-y-1 list-disc pl-4">
+                  <li>Issue you cannot resolve quickly</li>
+                  <li>Need for additional equipment</li>
+                  <li>Situation requires more hands</li>
+                </ul>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <h4 className="font-bold text-slate-900 mb-2">How to Escalate</h4>
+                <p className="text-sm text-slate-600 mb-2">Use <strong>Google Chat</strong> to request support.</p>
+                <p className="text-sm text-slate-600">Presenter support &gt; Helpdesk walk-ups.</p>
+              </div>
+            </div>
+            
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+              <h4 className="font-bold text-blue-900 mb-1 flex items-center gap-2">
+                <Users size={18}/>
+                Flexibility Expectations
+              </h4>
+              <p className="text-sm text-blue-800">
+                Flex where possible to assist nearby rooms or other blocks, but always return to your assigned block or the Helpdesk when cleared.
+              </p>
+            </div>
+          </section>
+
+          {/* KEY PRINCIPLE FOOTER */}
+          <div className="bg-slate-900 text-white p-6 rounded-xl text-center">
+            <div className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-3">Key Principle</div>
+            <h3 className="text-xl md:text-2xl font-bold mb-2">Be visible, calm, and proactive.</h3>
+            <p className="text-slate-400">If something doesn’t fit the plan, escalate rather than improvising alone.</p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SpecialCard({ name, task }) {
   return (
