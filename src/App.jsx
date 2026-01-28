@@ -297,7 +297,8 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
-              PD Day IT Support
+              Educate. Inform. Inspire. 2026 
+              IT Support
               <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300 font-normal border border-slate-600">
                 {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </span>
