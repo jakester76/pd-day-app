@@ -28,7 +28,7 @@ const MAP_LOCATIONS = {
   "Room 507": { x: 23.9, y: 14.4 },
   "Room 509": { x: 23.9, y: 18.2 },
   "Media Center | Room 100": { x: 27.7, y: 59.7 },
-  "Band Room | 501": { x: 20.0, y: 20.0 }, // Placeholder coordinate
+  "Band Room | 501": { x: 23.9, y: 31.9 },
 
   // Block 1
   "Room 120": { x: 56.4, y: 59.7 },
@@ -480,7 +480,6 @@ export default function App() {
         {view === 'map' && (
           <InteractiveMap 
             roomStatus={roomStatus} 
-            onToggle={toggleRoom}
             isConfigured={!!db}
           />
         )}
@@ -629,7 +628,7 @@ function SpecialCard({ name, task }) {
   );
 }
 
-function InteractiveMap({ roomStatus, onToggle, isConfigured }) {
+function InteractiveMap({ roomStatus, isConfigured }) {
   // Use the uploaded file path (User must place this file in their public folder)
   const mapImageUrl = "/phhs-map.jpg";
   
@@ -642,7 +641,7 @@ function InteractiveMap({ roomStatus, onToggle, isConfigured }) {
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <div>
             <h3 className="font-bold text-slate-800">Interactive Floorplan</h3>
-            <p className="text-xs text-slate-500">Click a room to check it off.</p>
+            <p className="text-xs text-slate-500">View current room status (Read Only)</p>
           </div>
           <button 
             onClick={() => setEditMode(!editMode)}
@@ -657,19 +656,28 @@ function InteractiveMap({ roomStatus, onToggle, isConfigured }) {
           <img src={mapImageUrl} alt="School Map" className="w-full h-auto object-contain opacity-90" />
           
           {/* Render All Configured Dots */}
-          {Object.entries(MAP_LOCATIONS).map(([label, coords]) => (
-            <MapDot 
-              key={label}
-              x={coords.x} 
-              y={coords.y} 
-              // Cleanup label for button text: Remove prefix, convert pipes
-              label={label.replace("Room ", "").replace("Auditorium (PAC) | ", "").replace("Media Center | ", "").replace("Band Room | ", "")} 
-              status={roomStatus[label]?.status} 
-              onClick={() => onToggle(label)}
-              // Make PAC/Media larger
-              size={label.includes("Auditorium") || label.includes("Media") ? "large" : "normal"}
-            />
-          ))}
+          {Object.entries(MAP_LOCATIONS).map(([label, coords]) => {
+            let displayLabel = label.replace("Room ", "").replace("Auditorium (PAC) | ", "").replace("Media Center | ", "").replace("Band Room | ", "");
+            
+            // Custom label overrides
+            if (label.includes("Auditorium")) displayLabel = "PAC";
+            if (label.includes("Media Center")) displayLabel = "Media";
+            if (label.includes("Band Room")) displayLabel = "501";
+
+            return (
+              <MapDot 
+                key={label}
+                x={coords.x} 
+                y={coords.y} 
+                label={displayLabel} 
+                status={roomStatus[label]?.status} 
+                // Removed onClick={onToggle} to make it read-only
+                
+                // Make PAC/Media larger squares
+                size={label.includes("Auditorium") || label.includes("Media") ? "square" : "normal"}
+              />
+            );
+          })}
 
           {/* Edit Mode Helper */}
           {editMode && (
@@ -696,25 +704,41 @@ function InteractiveMap({ roomStatus, onToggle, isConfigured }) {
 
 function MapDot({ x, y, label, status, onClick, size }) {
   const isChecked = status === 'checked';
+  const isInteractive = typeof onClick === 'function';
+
+  // Base classes + size variants
+  let sizeClasses = 'w-10 h-10 rounded-full text-xs'; // Default 'normal'
+  if (size === 'square') sizeClasses = 'w-14 h-14 rounded-lg text-xs';
+
+  // Interactive classes (only apply if onClick is present)
+  const interactiveClasses = isInteractive
+    ? 'cursor-pointer transition-all active:scale-95 hover:scale-110'
+    : '';
+
+  // Color classes
+  const colorClasses = isChecked
+    ? 'bg-green-600 border-green-800 text-white shadow-green-900/20'
+    : `bg-white border-red-600 text-red-700 shadow-xl shadow-red-600/40 ${isInteractive ? 'hover:bg-red-50' : ''}`;
+
+  const Component = isInteractive ? 'button' : 'div';
+
   return (
-    <button
-      onClick={onClick}
+    <Component
+      onClick={isInteractive ? onClick : undefined}
       className={`
         absolute transform -translate-x-1/2 -translate-y-1/2 
-        border-[3px] shadow-sm transition-all active:scale-95
+        border-[3px] shadow-sm
         flex items-center justify-center font-black z-20 overflow-hidden tracking-tighter
-        ${size === 'large' ? 'w-20 h-12 rounded-xl text-xs' : 'w-10 h-10 rounded-full text-xs'}
-        ${isChecked 
-          ? 'bg-green-600 border-green-800 text-white shadow-green-900/20' 
-          : 'bg-white border-red-600 text-red-700 shadow-xl shadow-red-600/40 hover:scale-110 hover:bg-red-50'
-        }
+        ${sizeClasses}
+        ${colorClasses}
+        ${interactiveClasses}
       `}
       style={{ left: `${x}%`, top: `${y}%` }}
       title={label}
     >
       {/* Logic to show label always, even when checked. No icons. */}
       {label.substring(0, 5)}
-    </button>
+    </Component>
   );
 }
 
