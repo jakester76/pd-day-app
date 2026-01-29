@@ -27,7 +27,7 @@ const MAP_LOCATIONS = {
   "Auditorium (PAC) | Room 100A": { x: 15.1, y: 22.7 },
   "Room 507": { x: 23.9, y: 14.4 },
   "Room 509": { x: 23.9, y: 18.2 },
-  "Media Center | Room 100": { x: 27.7, y: 59.7 },
+  "Media Center | Room 100": { x: 27.7, y: 58.7 },
   "Band Room | 501": { x: 23.9, y: 31.9 },
 
   // Block 1
