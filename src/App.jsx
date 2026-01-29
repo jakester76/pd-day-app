@@ -464,12 +464,12 @@ export default function App() {
             <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
               <h3 className="font-bold text-slate-800 mb-4">Off-Site & Dispatch</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                <SpecialCard name="Isabelle V." task="Parapro PD @ McKinley" />
-                <SpecialCard name="Kevin S." task="Dispatch: RESA & NONP" />
-                <SpecialCard name="Matthew C." task="Dispatch: Capac, Croslex" />
-                <SpecialCard name="James M." task="Dispatch: Everything @ RESA" />
-                <SpecialCard name="Nathaneal R." task="Covering MUN @ RESA" />
-                <SpecialCard name="Justin R." task="Covering Everything @ RESA" />
+                <SpecialCard name="Isabelle V." task="@McKinley (covering parapro PD support)" />
+                <SpecialCard name="Kevin S." task="@RESA (dispatch for RESA & NONP as needed)" />
+                <SpecialCard name="Matthew C." task="@Croslex + dispatch to Capac as needed" />
+                <SpecialCard name="Nick M." task="@Marysville + dispatch to Capac as needed" />
+                <SpecialCard name="Nathaneal R." task="@RESA (dispatch for MUN as needed)" />
+                <SpecialCard name="James M. & Justin R." task="@RESA (supporting anything & everything)" />
               </div>
             </div>
 
