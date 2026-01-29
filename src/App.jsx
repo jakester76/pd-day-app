@@ -28,6 +28,7 @@ const MAP_LOCATIONS = {
   "Room 507": { x: 23.9, y: 14.4 },
   "Room 509": { x: 23.9, y: 18.2 },
   "Media Center | Room 100": { x: 27.7, y: 59.7 },
+  "Band Room | 501": { x: 20.0, y: 20.0 }, // Placeholder coordinate
 
   // Block 1
   "Room 120": { x: 56.4, y: 59.7 },
@@ -105,7 +106,7 @@ const TEAMS = [
       { name: "Eric N.", lunch: "B" },
       { name: "Phil H.", lunch: "C" }
     ],
-    rooms: ["Auditorium (PAC) | Room 100A", "Room 507", "Room 509", "Media Center | Room 100"]
+    rooms: ["Auditorium (PAC) | Room 100A", "Room 507", "Room 509", "Media Center | Room 100", "Band Room | 501"]
   },
   {
     id: "mini_hd_2_block4",
@@ -297,8 +298,7 @@ export default function App() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
-              Educate. Inform. Inspire. 2026 
-              IT Support
+              PD Day IT Support
               <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300 font-normal border border-slate-600">
                 {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </span>
@@ -662,11 +662,12 @@ function InteractiveMap({ roomStatus, onToggle, isConfigured }) {
               key={label}
               x={coords.x} 
               y={coords.y} 
-              label={label.replace("Room ", "").replace("Auditorium (PAC) | ", "").replace("Media Center | ", "")} 
+              // Cleanup label for button text: Remove prefix, convert pipes
+              label={label.replace("Room ", "").replace("Auditorium (PAC) | ", "").replace("Media Center | ", "").replace("Band Room | ", "")} 
               status={roomStatus[label]?.status} 
               onClick={() => onToggle(label)}
-              // Make PAC dot larger
-              size={label.includes("Auditorium") ? "large" : "normal"}
+              // Make PAC/Media larger
+              size={label.includes("Auditorium") || label.includes("Media") ? "large" : "normal"}
             />
           ))}
 
@@ -700,18 +701,19 @@ function MapDot({ x, y, label, status, onClick, size }) {
       onClick={onClick}
       className={`
         absolute transform -translate-x-1/2 -translate-y-1/2 
-        border-2 shadow-sm transition-all active:scale-95
-        flex items-center justify-center font-bold text-[10px] z-20 overflow-hidden
-        ${size === 'large' ? 'w-16 h-16 rounded-lg' : 'w-8 h-8 rounded-full'}
+        border-[3px] shadow-sm transition-all active:scale-95
+        flex items-center justify-center font-black z-20 overflow-hidden tracking-tighter
+        ${size === 'large' ? 'w-20 h-12 rounded-xl text-xs' : 'w-10 h-10 rounded-full text-xs'}
         ${isChecked 
-          ? 'bg-green-500 border-green-600 text-white shadow-green-500/20' 
-          : 'bg-white border-red-500 text-slate-800 shadow-lg shadow-red-500/20 hover:scale-110'
+          ? 'bg-green-600 border-green-800 text-white shadow-green-900/20' 
+          : 'bg-white border-red-600 text-red-700 shadow-xl shadow-red-600/40 hover:scale-110 hover:bg-red-50'
         }
       `}
       style={{ left: `${x}%`, top: `${y}%` }}
       title={label}
     >
-      {isChecked ? <CheckCircle2 size={size === 'large' ? 24 : 14} /> : label.substring(0, 4)}
+      {/* Logic to show label always, even when checked. No icons. */}
+      {label.substring(0, 5)}
     </button>
   );
 }
