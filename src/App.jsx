@@ -4,7 +4,9 @@ import { getFirestore, collection, doc, setDoc, onSnapshot, query, writeBatch, g
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { 
   Users, Map as MapIcon, CheckCircle2, Circle, 
-  AlertCircle, RefreshCw, Clock, BookOpen
+  RefreshCw, Clock, BookOpen, 
+  ChevronDown, ChevronUp, Calendar, ClipboardList,
+  AlertCircle
 } from 'lucide-react';
 
 /* ==========================================
@@ -23,14 +25,11 @@ const firebaseConfig = {
 
 // -- MAP COORDINATES --
 const MAP_LOCATIONS = {
-  // Mini HD 1 + PAC
   "Auditorium (PAC) | Room 100A": { x: 15.1, y: 22.7 },
   "Room 507": { x: 23.9, y: 14.4 },
   "Room 509": { x: 23.9, y: 18.2 },
-  "Media Center | Room 100": { x: 27.7, y: 58.7 },
+  "Media Center | Room 100": { x: 27.7, y: 59.7 },
   "Band Room | 501": { x: 23.9, y: 31.9 },
-
-  // Block 1
   "Room 120": { x: 56.4, y: 59.7 },
   "Room 121": { x: 56.7, y: 52.7 },
   "Room 122": { x: 59.6, y: 59.7 },
@@ -39,14 +38,10 @@ const MAP_LOCATIONS = {
   "Room 125": { x: 63.4, y: 52.7 },
   "Room 127": { x: 66.5, y: 52.7 },
   "Room 131": { x: 69.9, y: 52.7 },
-
-  // Mini HD 2 + Block 4
   "Room 311": { x: 63.6, y: 36.5 },
   "Room 312": { x: 64.4, y: 43.2 },
   "Room 313": { x: 68.6, y: 36.5 },
   "Room 314": { x: 68.1, y: 43.2 },
-
-  // Block 2
   "Room 128": { x: 69.7, y: 59.7 },
   "Room 130": { x: 72.8, y: 59.7 },
   "Room 132": { x: 75.5, y: 59.7 },
@@ -55,16 +50,12 @@ const MAP_LOCATIONS = {
   "Room 135": { x: 75.7, y: 52.7 },
   "Room 137": { x: 81.2, y: 52.7 },
   "Room 139": { x: 84.2, y: 52.7 },
-
-  // Block 3
   "Room 200": { x: 81.2, y: 49.3 },
   "Room 204": { x: 82.2, y: 46.3 },
   "Room 206": { x: 81.2, y: 41.2 },
   "Room 317": { x: 75.7, y: 36.5 },
   "Room 318": { x: 75.7, y: 41.2 },
   "Room 319": { x: 81.2, y: 36.5 },
-
-  // Block 5
   "Room 302": { x: 44.4, y: 43.2 },
   "Room 304": { x: 48.2, y: 43.2 },
   "Room 306": { x: 51.6, y: 43.2 },
@@ -77,12 +68,19 @@ const MAP_LOCATIONS = {
 const EVENT_DATE_STR = "2026-02-17"; 
 
 const SCHEDULE = [
-  { time: "8:15 - 9:15", label: "Keynote / Breakout A", type: "session" },
-  { time: "9:30 - 10:30", label: "2nd Keynote / Breakout B", type: "session" },
-  { time: "10:45 - 11:45", label: "Breakout C", type: "lunch-a", note: "LUNCH A" },
-  { time: "12:00 - 1:00", label: "Breakout D", type: "lunch-b", note: "LUNCH B" },
-  { time: "1:15 - 2:15", label: "PM Keynote / Breakout E", type: "lunch-c", note: "LUNCH C" },
-  { time: "2:30 - 3:30", label: "PM Keynote / Breakout F", type: "session" },
+  { time: "7:30 - 8:15", label: "Morning Setup", type: "transition", task: "Contact presenters & confirm readiness." },
+  { time: "8:15 - 9:15", label: "Keynote / Breakout A", type: "session", task: "Check rooms every 20 mins." },
+  { time: "9:15 - 9:30", label: "Break / Transition", type: "transition", task: "Contact presenters & confirm readiness." },
+  { time: "9:30 - 10:30", label: "2nd Keynote / Breakout B", type: "session", task: "Check rooms every 20 mins." },
+  { time: "10:30 - 10:45", label: "Break / Transition", type: "transition", task: "Contact presenters & confirm readiness." },
+  { time: "10:45 - 11:45", label: "Breakout C", type: "lunch-a", note: "LUNCH A", task: "Check rooms every 20 mins." },
+  { time: "11:45 - 12:00", label: "Break / Transition", type: "transition", task: "Contact presenters & confirm readiness." },
+  { time: "12:00 - 1:00", label: "Breakout D", type: "lunch-b", note: "LUNCH B", task: "Check rooms every 20 mins." },
+  { time: "1:00 - 1:15", label: "Break / Transition", type: "transition", task: "Contact presenters & confirm readiness." },
+  { time: "1:15 - 2:15", label: "PM Keynote / Breakout E", type: "lunch-c", note: "LUNCH C", task: "Check rooms every 20 mins." },
+  { time: "2:15 - 2:30", label: "Break / Transition", type: "transition", task: "Contact presenters & confirm readiness." },
+  { time: "2:30 - 3:30", label: "PM Keynote / Breakout F", type: "session", task: "Check rooms every 20 mins." },
+  { time: "3:30 - 4:30", label: "Event Breakdown", type: "teardown", task: "Collect supplies, pack up, return equipment to RESA." },
 ];
 
 const TEAMS = [
@@ -168,23 +166,87 @@ const TEAMS = [
   }
 ];
 
+// -- GLOBAL HELPERS --
+
+// Make Date Object for Event Day
+const makeDate = (timeStr) => {
+  const [hStr, mStr] = timeStr.split(':');
+  let h = parseInt(hStr);
+  if (h < 5) h += 12; // Handle PM hours (1-4 PM)
+  const d = new Date(EVENT_DATE_STR);
+  d.setHours(h, parseInt(mStr), 0);
+  return d;
+};
+
+// Calculate active slot based on Real Date Time
+const getGlobalTimeStatus = (now) => {
+  let activeSlot = null;
+  let targetTime = null;
+  let timerLabel = "";
+
+  // 1. Find active slot
+  for (const slot of SCHEDULE) {
+      const [startStr, endStr] = slot.time.split(' - ');
+      const start = makeDate(startStr);
+      const end = makeDate(endStr);
+      if (now >= start && now < end) {
+          activeSlot = { ...slot, start, end };
+          break;
+      }
+  }
+
+  // 2. Determine Countdown
+  if (activeSlot) {
+      if (activeSlot.type === 'session' || activeSlot.note) {
+          // IN SESSION: Count to END of session
+          targetTime = activeSlot.end;
+          timerLabel = `Session Ends In:`;
+      } else {
+          // IN TRANSITION: Count to Next Session Start
+          targetTime = activeSlot.end; // Transition end is next session start
+          timerLabel = `Next Session Starts In:`;
+      }
+  } else {
+      // Check if before first event
+      const firstStart = makeDate(SCHEDULE[0].time.split(' - ')[0]);
+      if (now < firstStart) {
+          targetTime = firstStart;
+          timerLabel = "Event Starts In:";
+      }
+  }
+
+  // Calculate remaining ms
+  let remainingMs = 0;
+  if (targetTime) {
+      remainingMs = targetTime - now;
+  }
+
+  return { activeSlot, remainingMs, timerLabel };
+};
+
 // -- APP COMPONENT --
 
 export default function App() {
-  const [view, setView] = useState('dashboard'); // 'dashboard' | 'map' | 'playbook'
+  const [view, setView] = useState('dashboard');
   const [user, setUser] = useState(null);
   const [roomStatus, setRoomStatus] = useState({});
   const [loading, setLoading] = useState(true);
+  
+  // Simulation & Time State
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [simulatedTimeStr, setSimulatedTimeStr] = useState("LIVE"); 
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   
   // -- FIREBASE INIT --
   const [db, setDb] = useState(null);
 
   useEffect(() => {
-    // Clock for timeline
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const timer = setInterval(() => {
+        if (simulatedTimeStr === "LIVE") {
+            setCurrentTime(new Date());
+        }
+    }, 1000); 
 
-    // Only init if config is present
     if (firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
@@ -194,8 +256,9 @@ export default function App() {
       signInAnonymously(auth).catch(console.error);
       onAuthStateChanged(auth, (u) => setUser(u));
 
-      const q = query(collection(database, "roomchecks"));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Live Room Status
+      const qStatus = query(collection(database, "roomchecks"));
+      const unsubStatus = onSnapshot(qStatus, (snapshot) => {
         const data = {};
         snapshot.forEach((doc) => {
           data[doc.id] = doc.data();
@@ -203,27 +266,29 @@ export default function App() {
         setRoomStatus(data);
         setLoading(false);
       });
+
       return () => {
-        unsubscribe();
+        unsubStatus();
         clearInterval(timer);
       };
     } else {
       setLoading(false);
       clearInterval(timer);
     }
-  }, []);
+  }, [simulatedTimeStr]);
 
   // -- ACTIONS --
 
   const toggleRoom = async (roomName) => {
-    if (!db) return alert("Please configure Firebase keys in the code first.");
-    const isChecked = roomStatus[roomName]?.status === 'checked';
+    if (!db) return alert("Please configure Firebase keys first.");
+    
+    const currentData = roomStatus[roomName] || {};
+    const isChecked = currentData.status === 'checked';
     const newStatus = isChecked ? 'unchecked' : 'checked';
     
-    // Optimistic UI update
     setRoomStatus(prev => ({
       ...prev, 
-      [roomName]: { status: newStatus, timestamp: Date.now(), by: "User" }
+      [roomName]: { ...currentData, status: newStatus, timestamp: Date.now() }
     }));
 
     await setDoc(doc(db, "roomchecks", roomName), {
@@ -236,227 +301,172 @@ export default function App() {
   const resetAllRooms = async () => {
     if (!db) return alert("Firebase not configured.");
     
-    // Safety confirm to avoid accidents
-    if (!window.confirm("⚠️ ARE YOU SURE?\n\nThis will clear ALL checks from the board for the next rotation.\nOnly do this during a break.")) {
+    if (!window.confirm("⚠️ RESET BOARD?\n\nThis will clear all checks for the next session.\n\nProceed?")) {
       return;
     }
 
-    const batch = writeBatch(db);
-    const querySnapshot = await getDocs(collection(db, "roomchecks"));
-    querySnapshot.forEach((docSnap) => {
-      batch.update(doc(db, "roomchecks", docSnap.id), { status: 'unchecked' });
-    });
-    
     try {
-      await batch.commit();
-      alert("Board has been reset.");
+        const batch = writeBatch(db);
+        const querySnapshot = await getDocs(collection(db, "roomchecks"));
+        querySnapshot.forEach((docSnap) => {
+            // Reset status only
+            batch.update(doc(db, "roomchecks", docSnap.id), { 
+                status: 'unchecked',
+                activeNeeds: [], // Clear any legacy fields
+                activeLoans: [],
+                flags: []
+            });
+        });
+        
+        await batch.commit();
     } catch (e) {
-      console.error(e);
-      alert("Error resetting board.");
+        console.error("Error resetting:", e);
+        alert("Error resetting board.");
     }
   };
 
-  // -- RENDER HELPERS --
-
-  const isTimeSlotActive = (timeStr) => {
-    const [startStr, endStr] = timeStr.split(" - ");
-    const createEventDate = (timeString) => {
-      const [hours, minutes] = timeString.split(":");
-      const d = new Date(EVENT_DATE_STR); 
-      let h = parseInt(hours);
-      if (h < 7) h += 12; // e.g. 1:00 -> 13:00
-      d.setHours(h, parseInt(minutes), 0);
-      return d;
-    };
-    const start = createEventDate(startStr);
-    const end = createEventDate(endStr);
-    const now = currentTime;
-    const isSameDay = now.toDateString() === new Date(EVENT_DATE_STR).toDateString();
-    
-    if (!isSameDay) return false;
-    return now >= start && now <= end;
+  // -- SIMULATION LOGIC --
+  const handleSimulationChange = (e) => {
+      const val = e.target.value;
+      setSimulatedTimeStr(val);
+      
+      if (val === "LIVE") {
+          setCurrentTime(new Date());
+      } else {
+          const [hours, minutes] = val.split(':');
+          const simDate = new Date(EVENT_DATE_STR);
+          simDate.setHours(parseInt(hours), parseInt(minutes), 0);
+          setCurrentTime(simDate);
+      }
   };
 
-  const getLunchBadge = (type) => {
-    if (type === 'A') return "bg-green-100 text-green-800";
-    if (type === 'B') return "bg-amber-100 text-amber-800";
-    if (type === 'C') return "bg-purple-100 text-purple-800";
-    return "bg-gray-100 text-gray-800";
-  };
-
-  const getTeamColor = (color) => {
-    if (color === 'red') return "border-t-red-500";
-    if (color === 'amber') return "border-t-amber-500";
-    return "border-t-blue-500";
-  };
+  // Get status for render
+  const { activeSlot, remainingMs, timerLabel } = getGlobalTimeStatus(currentTime);
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
       
       {/* HEADER */}
-      <header className="bg-slate-900 text-white p-4 sticky top-0 z-50 shadow-md">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div>
-            <h1 className="text-xl font-bold flex items-center gap-2">
-              PD Day IT Support
-              <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300 font-normal border border-slate-600">
+      <header className="bg-slate-900 text-white p-3 sticky top-0 z-50 shadow-md">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold flex items-center gap-2">
+              PD Day IT
+              <span className={`text-[10px] px-2 py-0.5 rounded font-normal border ${simulatedTimeStr !== "LIVE" ? "bg-amber-600 border-amber-400 text-white" : "bg-slate-700 border-slate-600 text-slate-300"}`}>
                 {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </span>
             </h1>
-            <p className="text-xs text-slate-400">Live Dashboard</p>
+            
+            {/* Hidden Logic for Simulation (Only visible if you know where to look or uncomment) */}
+            {/* <div className="hidden sm:block">
+               <select value={simulatedTimeStr} onChange={handleSimulationChange} className="bg-slate-800 text-xs border border-slate-700 rounded px-1">
+                  <option value="LIVE">Live</option>
+                  <option value="08:30">08:30</option>
+                  <option value="10:40">10:40</option>
+               </select>
+            </div> */}
           </div>
           
-          <div className="flex gap-2 w-full md:w-auto">
+          <div className="flex gap-1 w-full md:w-auto overflow-x-auto no-scrollbar">
             <button 
               onClick={() => setView('dashboard')}
-              className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+              className={`flex-1 px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors flex items-center justify-center gap-1 ${view === 'dashboard' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
             >
-              <Users size={18} className="inline mr-2" />
-              Teams
+              <Users size={14} /> Teams
             </button>
             <button 
               onClick={() => setView('map')}
-              className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'map' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+              className={`flex-1 px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors flex items-center justify-center gap-1 ${view === 'map' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
             >
-              <MapIcon size={18} className="inline mr-2" />
-              Map
+              <MapIcon size={14} /> Map
             </button>
             <button 
               onClick={() => setView('playbook')}
-              className={`flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'playbook' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+              className={`flex-1 px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors flex items-center justify-center gap-1 ${view === 'playbook' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
             >
-              <BookOpen size={18} className="inline mr-2" />
-              Playbook
+              <BookOpen size={14} /> Book
             </button>
-            {/* RESET BUTTON */}
             <button 
               onClick={resetAllRooms}
-              className="flex-1 md:flex-none px-4 py-2 rounded-md text-sm font-medium bg-red-900/50 text-red-200 border border-red-800 hover:bg-red-900 hover:text-white transition-colors ml-2"
-              title="Clear all checks"
+              className="px-3 py-1.5 rounded text-xs font-medium bg-red-900/50 text-red-200 border border-red-800 hover:bg-red-800 transition-colors"
+              title="Reset Board"
             >
-              <RefreshCw size={18} />
+              <RefreshCw size={14} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* CONFIG WARNING */}
-      {!db && (
-        <div className="bg-red-50 border-b border-red-200 p-4 text-center">
-          <p className="text-red-800 flex justify-center items-center gap-2">
-            <AlertCircle size={20} />
-            <strong>Setup Required:</strong> Add your Firebase Config keys in the code to enable live syncing.
-          </p>
+      {/* COMPACT TIMELINE (Expandable) */}
+      <div className="bg-white border-b border-slate-200 shadow-sm sticky top-[60px] z-40">
+        <div 
+            className={`max-w-6xl mx-auto px-4 py-2 cursor-pointer hover:bg-slate-50 transition-colors ${activeSlot?.type === 'transition' ? 'bg-blue-50' : ''}`}
+            onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
+        >
+            <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3 overflow-hidden">
+                    <div className={`p-1.5 rounded-full ${activeSlot?.type === 'transition' ? 'bg-blue-200 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                        {activeSlot?.type === 'transition' ? <RefreshCw size={16} className="animate-spin-slow"/> : <Clock size={16}/>}
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Current Status</span>
+                        <span className="text-sm font-bold text-slate-800 truncate">
+                            {activeSlot ? activeSlot.label : "Event Offline"}
+                        </span>
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span className="hidden sm:inline">{isTimelineExpanded ? "Hide Schedule" : "View Schedule"}</span>
+                    {isTimelineExpanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                </div>
+            </div>
+            
+            {/* Active Task (Visible when collapsed) */}
+            {!isTimelineExpanded && activeSlot && (
+                <div className="mt-1 ml-10 text-xs text-blue-600 font-medium flex items-center gap-1">
+                    <ClipboardList size={12}/> {activeSlot.task}
+                </div>
+            )}
         </div>
-      )}
+
+        {/* Expanded Timeline View */}
+        {isTimelineExpanded && (
+            <div className="max-w-6xl mx-auto border-t border-slate-100 max-h-[60vh] overflow-y-auto bg-slate-50 p-4">
+                <div className="grid grid-cols-1 divide-y divide-slate-200 bg-white rounded-lg border border-slate-200">
+                    {SCHEDULE.map((slot, i) => {
+                        // Simple active check for list
+                        const isActive = activeSlot && activeSlot.time === slot.time;
+                        return (
+                            <div key={i} className={`p-3 ${isActive ? 'bg-blue-50' : ''}`}>
+                                <div className="flex justify-between">
+                                    <span className="text-xs font-bold text-slate-900">{slot.time}</span>
+                                    {slot.note && <span className="text-[10px] bg-slate-200 px-1 rounded">{slot.note}</span>}
+                                </div>
+                                <div className="font-medium text-sm text-slate-800">{slot.label}</div>
+                                <div className="text-xs text-slate-500 mt-1">{slot.task}</div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        )}
+      </div>
 
       <main className="max-w-6xl mx-auto p-4">
         
         {/* DASHBOARD VIEW */}
         {view === 'dashboard' && (
           <div className="animate-in fade-in duration-300">
-            
-            {/* TIMELINE */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
-              <div className="bg-slate-800 text-white px-4 py-2 text-sm font-bold uppercase tracking-wider flex justify-between items-center">
-                <span>Event Timeline</span>
-                <span className="text-xs text-slate-400 font-normal">Feb 17, 2026</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-6 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-                {SCHEDULE.map((slot, i) => {
-                  const isActive = isTimeSlotActive(slot.time);
-                  return (
-                    <div 
-                      key={i} 
-                      className={`
-                        p-3 flex flex-col justify-between transition-colors relative
-                        ${slot.note ? getSlotBg(slot.type) : ''}
-                        ${isActive ? 'bg-blue-50 ring-2 ring-inset ring-blue-500 z-10' : ''}
-                      `}
-                    >
-                      {isActive && (
-                        <div className="absolute top-0 right-0 bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-bl">
-                          NOW
-                        </div>
-                      )}
-                      <div>
-                        <span className={`block text-xs font-bold mb-1 ${isActive ? 'text-blue-700' : 'text-slate-900'}`}>
-                          {slot.time}
-                        </span>
-                        <span className="text-xs text-slate-600 leading-tight block">{slot.label}</span>
-                      </div>
-                      {slot.note && (
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mt-2 w-fit ${getLunchBadgeBadge(slot.type)}`}>
-                          {slot.note}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* TEAMS GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {TEAMS.map((team) => (
-                <div key={team.id} className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden border-t-4 ${getTeamColor(team.color)}`}>
-                  <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-start">
-                    <h3 className="font-bold text-lg text-slate-800">{team.name}</h3>
-                  </div>
-                  
-                  {/* ROOM CHECKLIST */}
-                  {team.rooms.length > 0 && (
-                    <div className="bg-slate-50 px-5 py-3 border-b border-slate-100">
-                      <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Room Status</p>
-                      <div className="flex flex-wrap gap-2">
-                        {team.rooms.map(room => {
-                          const isChecked = roomStatus[room]?.status === 'checked';
-                          return (
-                            <button
-                              key={room}
-                              onClick={() => toggleRoom(room)}
-                              className={`
-                                text-xs px-2 py-1 rounded-md border flex items-center gap-1.5 transition-all
-                                ${isChecked 
-                                  ? 'bg-green-100 border-green-200 text-green-800 shadow-sm' 
-                                  : 'bg-white border-red-300 text-slate-800 shadow-sm hover:bg-red-50'
-                                }
-                              `}
-                            >
-                              {isChecked ? <CheckCircle2 size={12} /> : <Circle size={12} className="text-red-500" />}
-                              {room.replace("Room ", "")}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* MEMBER LIST */}
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-white text-xs text-slate-400 uppercase">
-                      <tr>
-                        <th className="px-5 py-2 font-medium">Name</th>
-                        <th className="px-5 py-2 font-medium w-20">Lunch</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {team.members.map((member, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50">
-                          <td className="px-5 py-3 text-slate-700">
-                            <div className="font-medium">{member.name}</div>
-                            {member.note && <div className="text-[10px] text-slate-400">{member.note}</div>}
-                          </td>
-                          <td className="px-5 py-3">
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${getLunchBadge(member.lunch)}`}>
-                              Lunch {member.lunch}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <TeamCard 
+                  key={team.id} 
+                  team={team} 
+                  roomStatus={roomStatus} 
+                  onToggleRoom={toggleRoom} 
+                />
               ))}
             </div>
 
@@ -472,16 +482,22 @@ export default function App() {
                 <SpecialCard name="James M. & Justin R." task="@RESA (supporting anything & everything)" />
               </div>
             </div>
-
           </div>
         )}
 
         {/* MAP VIEW */}
         {view === 'map' && (
-          <InteractiveMap 
-            roomStatus={roomStatus} 
-            isConfigured={!!db}
-          />
+          <>
+            {/* COUNTDOWN CLOCK OVERLAY */}
+            {remainingMs > 0 && (
+                <CountdownClock ms={remainingMs} label={timerLabel} />
+            )}
+            
+            <InteractiveMap 
+                roomStatus={roomStatus} 
+                isConfigured={!!db}
+            />
+          </>
         )}
 
         {/* PLAYBOOK VIEW */}
@@ -495,6 +511,123 @@ export default function App() {
 }
 
 // -- SUB COMPONENTS --
+
+function CountdownClock({ ms, label }) {
+    if (ms < 0) return null;
+
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    // Color logic
+    let colorClass = "bg-blue-600";
+    if (hours === 0 && minutes < 5) colorClass = "bg-red-600 animate-pulse";
+    else if (hours === 0 && minutes < 15) colorClass = "bg-amber-500";
+
+    return (
+        <div className="mb-6 rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-white">
+            <div className={`${colorClass} text-white p-2 text-center text-xs font-bold uppercase tracking-wider`}>
+                {label}
+            </div>
+            <div className="p-4 flex items-center justify-center gap-4">
+                <div className="text-center">
+                    <div className="text-4xl font-black text-slate-800 tabular-nums">
+                        {hours > 0 && (
+                            <span>{hours}<span className="text-slate-300 text-2xl mx-1">:</span></span>
+                        )}
+                        {minutes.toString().padStart(2, '0')}
+                        <span className="text-slate-300 text-2xl mx-1">:</span>
+                        {seconds.toString().padStart(2, '0')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function TeamCard({ team, roomStatus, onToggleRoom }) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  return (
+    <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden border-t-4 transition-all ${getTeamColor(team.color)}`}>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-white hover:bg-slate-50 transition-colors text-left"
+      >
+        <h3 className="font-bold text-lg text-slate-800">{team.name}</h3>
+        <div className="text-slate-400">
+            {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </div>
+      </button>
+      
+      {isOpen && (
+        <div className="animate-in slide-in-from-top-2 duration-200">
+            {/* ROOM CHECKLIST */}
+            {team.rooms.length > 0 && (
+                <div className="bg-slate-50 px-5 py-3 border-b border-slate-100">
+                    <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Room Status</p>
+                    <div className="flex flex-wrap gap-2">
+                    {team.rooms.map(room => {
+                        const roomData = roomStatus[room] || {};
+                        const isChecked = roomData.status === 'checked';
+                        
+                        // Simple Red/Green Style
+                        let btnStyle = 'bg-white border-red-300 text-slate-800 hover:bg-red-50'; // Unchecked
+                        let mainIcon = <Circle size={12} className="text-red-500" />;
+                        
+                        if (isChecked) {
+                            btnStyle = 'bg-green-100 border-green-200 text-green-800';
+                            mainIcon = <CheckCircle2 size={12} />;
+                        }
+
+                        return (
+                            <button
+                                key={room}
+                                onClick={() => onToggleRoom(room)}
+                                className={`
+                                    text-xs px-2 py-1 rounded-md border flex items-center gap-1.5 transition-all
+                                    ${btnStyle}
+                                `}
+                            >
+                                {mainIcon}
+                                <span className="font-bold">{room.replace("Room ", "")}</span>
+                            </button>
+                        )
+                    })}
+                    </div>
+                </div>
+            )}
+
+            {/* MEMBER LIST */}
+            <table className="w-full text-sm text-left">
+            <thead className="bg-white text-xs text-slate-400 uppercase">
+                <tr>
+                <th className="px-5 py-2 font-medium">Name</th>
+                <th className="px-5 py-2 font-medium w-20">Lunch</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+                {team.members.map((member, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="px-5 py-3 text-slate-700">
+                    <div className="font-medium">{member.name}</div>
+                    {member.note && <div className="text-[10px] text-slate-400">{member.note}</div>}
+                    </td>
+                    <td className="px-5 py-3">
+                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${getLunchBadge(member.lunch)}`}>
+                        Lunch {member.lunch}
+                    </span>
+                    </td>
+                </tr>
+                ))}
+            </tbody>
+            </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function PlaybookView() {
   return (
@@ -664,13 +797,15 @@ function InteractiveMap({ roomStatus, isConfigured }) {
             if (label.includes("Media Center")) displayLabel = "Media";
             if (label.includes("Band Room")) displayLabel = "501";
 
+            const roomData = roomStatus[label] || {};
+
             return (
               <MapDot 
                 key={label}
                 x={coords.x} 
                 y={coords.y} 
                 label={displayLabel} 
-                status={roomStatus[label]?.status} 
+                status={roomData.status}
                 // Removed onClick={onToggle} to make it read-only
                 
                 // Make PAC/Media larger squares
@@ -704,46 +839,32 @@ function InteractiveMap({ roomStatus, isConfigured }) {
 
 function MapDot({ x, y, label, status, onClick, size }) {
   const isChecked = status === 'checked';
-  const isInteractive = typeof onClick === 'function';
-
-  // Base classes + size variants
-  let sizeClasses = 'w-10 h-10 rounded-full text-xs'; // Default 'normal'
-  if (size === 'square') sizeClasses = 'w-14 h-14 rounded-lg text-xs';
-
-  // Interactive classes (only apply if onClick is present)
-  const interactiveClasses = isInteractive
-    ? 'cursor-pointer transition-all active:scale-95 hover:scale-110'
-    : '';
-
-  // Color classes
-  const colorClasses = isChecked
-    ? 'bg-green-600 border-green-800 text-white shadow-green-900/20'
-    : `bg-white border-red-600 text-red-700 shadow-xl shadow-red-600/40 ${isInteractive ? 'hover:bg-red-50' : ''}`;
-
-  const Component = isInteractive ? 'button' : 'div';
-
   return (
-    <Component
-      onClick={isInteractive ? onClick : undefined}
+    <button
+      onClick={onClick}
       className={`
         absolute transform -translate-x-1/2 -translate-y-1/2 
         border-[3px] shadow-sm
         flex items-center justify-center font-black z-20 overflow-hidden tracking-tighter
-        ${sizeClasses}
-        ${colorClasses}
-        ${interactiveClasses}
+        ${size === 'large' ? 'w-20 h-12 rounded-xl text-xs' : 'w-10 h-10 rounded-full text-xs'}
+        ${isChecked 
+          ? 'bg-green-600 border-green-800 text-white shadow-green-900/20' 
+          : 'bg-white border-red-600 text-red-700 shadow-xl shadow-red-600/40'
+        }
       `}
       style={{ left: `${x}%`, top: `${y}%` }}
       title={label}
     >
       {/* Logic to show label always, even when checked. No icons. */}
       {label.substring(0, 5)}
-    </Component>
+    </button>
   );
 }
 
 // Helpers for the timeline bg colors
 function getSlotBg(type) {
+  if (type === 'transition') return "bg-blue-50/50 border-l-4 border-l-blue-400"; // New Transition Style
+  if (type === 'teardown') return "bg-slate-100 border-l-4 border-l-slate-400"; // Breakdown Style
   if (type === 'lunch-a') return "bg-green-50/50";
   if (type === 'lunch-b') return "bg-amber-50/50";
   if (type === 'lunch-c') return "bg-purple-50/50";
@@ -755,4 +876,17 @@ function getLunchBadgeBadge(type) {
   if (type === 'lunch-b') return "bg-amber-100 text-amber-800";
   if (type === 'lunch-c') return "bg-purple-100 text-purple-800";
   return "";
+}
+
+function getLunchBadge(type) {
+  if (type === 'A') return "bg-green-100 text-green-800";
+  if (type === 'B') return "bg-amber-100 text-amber-800";
+  if (type === 'C') return "bg-purple-100 text-purple-800";
+  return "bg-gray-100 text-gray-800";
+}
+
+function getTeamColor(color) {
+  if (color === 'red') return "border-t-red-500";
+  if (color === 'amber') return "border-t-amber-500";
+  return "border-t-blue-500";
 }
