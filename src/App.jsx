@@ -821,11 +821,11 @@ function MapDot({ x, y, label, status, onClick, size }) {
       className={`
         absolute transform -translate-x-1/2 -translate-y-1/2 
         border-[3px] shadow-sm
-        flex items-center justify-center font-black z-20 overflow-hidden tracking-tighter
-        ${size === 'large' ? 'w-20 h-12 rounded-xl text-xs' : 'w-10 h-10 rounded-full text-xs'}
+        flex items-center justify-center font-bold z-20 overflow-hidden tracking-tighter
+        ${size === 'square' ? 'w-16 h-8 rounded-md text-[10px]' : 'w-7 h-7 rounded-full text-[9px]'}
         ${isChecked 
           ? 'bg-green-600 border-green-800 text-white shadow-green-900/20' 
-          : 'bg-white border-red-600 text-red-700 shadow-xl shadow-red-600/40'
+          : 'bg-white border-red-600 text-red-700 shadow-sm shadow-red-600/40'
         }
       `}
       style={{ left: `${x}%`, top: `${y}%` }}
