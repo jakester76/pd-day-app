@@ -5,7 +5,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { 
   Users, Map as MapIcon, CheckCircle2, Circle, 
   RefreshCw, Clock, BookOpen, 
-  ChevronDown, ChevronUp, Calendar, ClipboardList,
+  ChevronDown, ChevronUp, ClipboardList,
   AlertCircle
 } from 'lucide-react';
 
@@ -31,7 +31,7 @@ const MAP_LOCATIONS = {
   "Media Center | Room 100": { x: 26.6, y: 72.9 },
   "Band Room | 501": { x: 23.5, y: 42.8 },
   "Room 120": { x: 58.3, y: 72.1 },
-  "Room 121": { x: 58.3, y: 65.8},
+  "Room 121": { x: 58.3, y: 65.8 },
   "Room 122": { x: 61.1, y: 72.1 },
   "Room 123": { x: 61.1, y: 65.8 },
   "Room 124": { x: 63.8, y: 72.1 },
@@ -65,8 +65,6 @@ const MAP_LOCATIONS = {
 };
 
 // -- DATA CONSTANTS --
-const EVENT_DATE_STR = "2026-02-17"; 
-
 const SCHEDULE = [
   { time: "7:30 - 8:15", label: "Morning Setup", type: "transition", task: "Contact presenters & confirm readiness." },
   { time: "8:15 - 9:15", label: "Keynote / Breakout A", type: "session", task: "Check rooms every 20 mins." },
@@ -104,7 +102,7 @@ const TEAMS = [
       { name: "Eric N.", lunch: "B" },
       { name: "Phil H.", lunch: "C" }
     ],
-    rooms: ["Auditorium (PAC) | Room 100A", "Room 507", "Room 509", "Media Center | Room 100", "Band Room | 501"]
+    rooms: ["Auditorium (PAC) | Room 300", "Room 507", "Room 509", "Media Center | Room 100", "Band Room | 501"]
   },
   {
     id: "mini_hd_2_block4",
@@ -166,59 +164,62 @@ const TEAMS = [
   }
 ];
 
-// -- GLOBAL HELPERS --
+// -- GLOBAL TIME HELPERS --
 
-// Make Date Object for Event Day
-const makeDate = (timeStr) => {
+// Convert "HH:MM" string to minutes from midnight
+const getMinutesFromMidnight = (timeStr) => {
   const [hStr, mStr] = timeStr.split(':');
   let h = parseInt(hStr);
-  if (h < 5) h += 12; // Handle PM hours (1-4 PM)
-  const d = new Date(EVENT_DATE_STR);
-  d.setHours(h, parseInt(mStr), 0);
-  return d;
+  if (h < 5) h += 12; // Handle 1PM, 2PM etc. Assuming event is 7am-5pm
+  return (h * 60) + parseInt(mStr);
 };
 
-// Calculate active slot based on Real Date Time
-const getGlobalTimeStatus = (now) => {
+const getGlobalTimeStatus = (nowDate) => {
+  const currentMinutes = (nowDate.getHours() * 60) + nowDate.getMinutes();
+  const currentSeconds = nowDate.getSeconds();
+  
   let activeSlot = null;
-  let targetTime = null;
+  let targetMinutes = null;
   let timerLabel = "";
 
-  // 1. Find active slot
+  // 1. Find active slot based on minutes from midnight
   for (const slot of SCHEDULE) {
       const [startStr, endStr] = slot.time.split(' - ');
-      const start = makeDate(startStr);
-      const end = makeDate(endStr);
-      if (now >= start && now < end) {
-          activeSlot = { ...slot, start, end };
+      const startMins = getMinutesFromMidnight(startStr);
+      const endMins = getMinutesFromMidnight(endStr);
+      
+      if (currentMinutes >= startMins && currentMinutes < endMins) {
+          activeSlot = { ...slot, startMins, endMins };
           break;
       }
   }
 
-  // 2. Determine Countdown
+  // 2. Determine Countdown Target
   if (activeSlot) {
       if (activeSlot.type === 'session' || activeSlot.note) {
           // IN SESSION: Count to END of session
-          targetTime = activeSlot.end;
+          targetMinutes = activeSlot.endMins;
           timerLabel = `Session Ends In:`;
       } else {
           // IN TRANSITION: Count to Next Session Start
-          targetTime = activeSlot.end; // Transition end is next session start
+          targetMinutes = activeSlot.endMins;
           timerLabel = `Next Session Starts In:`;
       }
   } else {
       // Check if before first event
-      const firstStart = makeDate(SCHEDULE[0].time.split(' - ')[0]);
-      if (now < firstStart) {
-          targetTime = firstStart;
+      const firstStartMins = getMinutesFromMidnight(SCHEDULE[0].time.split(' - ')[0]);
+      if (currentMinutes < firstStartMins) {
+          targetMinutes = firstStartMins;
           timerLabel = "Event Starts In:";
       }
   }
 
   // Calculate remaining ms
   let remainingMs = 0;
-  if (targetTime) {
-      remainingMs = targetTime - now;
+  if (targetMinutes !== null) {
+      const targetTotalSeconds = targetMinutes * 60;
+      const currentTotalSeconds = (currentMinutes * 60) + currentSeconds;
+      remainingMs = (targetTotalSeconds - currentTotalSeconds) * 1000;
   }
 
   return { activeSlot, remainingMs, timerLabel };
@@ -232,21 +233,20 @@ export default function App() {
   const [roomStatus, setRoomStatus] = useState({});
   const [loading, setLoading] = useState(true);
   
-  // Simulation & Time State
+  // Time State
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [simulatedTimeStr, setSimulatedTimeStr] = useState("LIVE"); 
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   
   // -- FIREBASE INIT --
   const [db, setDb] = useState(null);
 
   useEffect(() => {
+    // Timer to update clock every 1s
     const timer = setInterval(() => {
-        if (simulatedTimeStr === "LIVE") {
-            setCurrentTime(new Date());
-        }
+        setCurrentTime(new Date());
     }, 1000); 
 
+    // Only init if config is present
     if (firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
@@ -275,7 +275,7 @@ export default function App() {
       setLoading(false);
       clearInterval(timer);
     }
-  }, [simulatedTimeStr]);
+  }, []);
 
   // -- ACTIONS --
 
@@ -307,37 +307,22 @@ export default function App() {
 
     try {
         const batch = writeBatch(db);
-        const querySnapshot = await getDocs(collection(db, "roomchecks"));
-        querySnapshot.forEach((docSnap) => {
-            // Reset status only
-            batch.update(doc(db, "roomchecks", docSnap.id), { 
+        
+        // Loop through explicit list of rooms to guarantee reset even if DB is empty/partial
+        Object.keys(MAP_LOCATIONS).forEach((roomName) => {
+            batch.set(doc(db, "roomchecks", roomName), { 
                 status: 'unchecked',
-                activeNeeds: [], // Clear any legacy fields
-                activeLoans: [],
-                flags: []
-            });
+                timestamp: Date.now(),
+                lastUpdatedBy: user ? user.uid : 'system_reset'
+            }, { merge: true }); // Merge preserves other fields if we ever added them back
         });
         
         await batch.commit();
+        // No alert needed, visual update happens instantly
     } catch (e) {
         console.error("Error resetting:", e);
         alert("Error resetting board.");
     }
-  };
-
-  // -- SIMULATION LOGIC --
-  const handleSimulationChange = (e) => {
-      const val = e.target.value;
-      setSimulatedTimeStr(val);
-      
-      if (val === "LIVE") {
-          setCurrentTime(new Date());
-      } else {
-          const [hours, minutes] = val.split(':');
-          const simDate = new Date(EVENT_DATE_STR);
-          simDate.setHours(parseInt(hours), parseInt(minutes), 0);
-          setCurrentTime(simDate);
-      }
   };
 
   // Get status for render
@@ -352,19 +337,10 @@ export default function App() {
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-bold flex items-center gap-2">
               PD Day IT
-              <span className={`text-[10px] px-2 py-0.5 rounded font-normal border ${simulatedTimeStr !== "LIVE" ? "bg-amber-600 border-amber-400 text-white" : "bg-slate-700 border-slate-600 text-slate-300"}`}>
+              <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded font-normal border border-slate-600 text-slate-300">
                 {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </span>
             </h1>
-            
-            {/* Hidden Logic for Simulation (Only visible if you know where to look or uncomment) */}
-            {/* <div className="hidden sm:block">
-               <select value={simulatedTimeStr} onChange={handleSimulationChange} className="bg-slate-800 text-xs border border-slate-700 rounded px-1">
-                  <option value="LIVE">Live</option>
-                  <option value="08:30">08:30</option>
-                  <option value="10:40">10:40</option>
-               </select>
-            </div> */}
           </div>
           
           <div className="flex gap-1 w-full md:w-auto overflow-x-auto no-scrollbar">
