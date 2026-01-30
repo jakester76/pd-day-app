@@ -301,7 +301,9 @@ export default function App() {
   const resetAllRooms = async () => {
     if (!db) return alert("Firebase not configured.");
     
-    if (!window.confirm("⚠️ RESET BOARD?\n\nThis will clear all checks for the next session.\n\nProceed?")) {
+    const pin = window.prompt("Enter Admin PIN to reset the board:");
+    if (pin !== "2026") {
+      if (pin !== null) alert("Incorrect PIN.");
       return;
     }
 
